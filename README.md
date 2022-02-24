@@ -23,6 +23,7 @@ In order to run the full pipeline with a new dataset
 
 # Expected Decision Boundaries
 When input data is 2D, it is possible to visualize decision boundaries. I included 2 decision boundaries for target false alarms 0.05 and 0.2.<br/>
+We use tree depth of 8.<br/>
 <img src="figures/db_005.png">
 <img src="figures/db_020.png">
 

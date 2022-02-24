@@ -9,15 +9,15 @@ test_size = 0.15;
 augmentation_size = 150e3;
 test_repeat = 100;
 cross_val_MC = 8;
-tfpr = 0.1;
+tfpr = 0.2;
 
 % Define model hyper-parameter space
 hyperparams.eta_init = 0.01;
 hyperparams.beta_init = 100;
 hyperparams.gamma = 1;
 hyperparams.sigmoid_h = -1;
-hyperparams.lambda = [0,1e-6];
-hyperparams.tree_depth = [7,8,9,10];
+hyperparams.lambda = 0;
+hyperparams.tree_depth = 8;
 hyperparams.split_prob = 0.5;
 hyperparams.node_loss_constant = 1;
 
