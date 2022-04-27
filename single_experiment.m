@@ -11,9 +11,9 @@ function model = single_experiment(tfpr, data_name, test_repeat, optimized_param
     hyperparams.eta_init = 0.01;
     hyperparams.beta_init = [100];
     hyperparams.gamma = 1;
-    hyperparams.sigmoid_h = -1;
+    hyperparams.sigmoid_h = -3;
     hyperparams.lambda = 0;
-    hyperparams.tree_depth = [6];
+    hyperparams.tree_depth = [8];
     hyperparams.split_prob = 0.5;
     hyperparams.node_loss_constant = 1;
 

@@ -15,7 +15,7 @@ data_name = 'banana';
 %data_name = 'miniboone_pid';
 %data_name = 'phishing';
 %data_name = 'satellite';
-%data_name = 'telescope';
+%data_name = 'telescope'; %0.7
 
 out_data = sprintf('./output/%s/res_%03d.mat', data_name, tfpr_index);
 out_hyper = sprintf('./output/%s/res_hyper_%03d.mat', data_name, tfpr_index);
@@ -90,4 +90,4 @@ save(sprintf('./output/%s/res_%03d',data_name, tfpr_index),...
 % for generating decision boundaries and transient outputs
 % for tree based online algorithms we are also printing out the weight
 % distribution
-model = single_experiment(tfpr, data_name, test_repeat, hyper_params);
+% model = single_experiment(tfpr, data_name, test_repeat, hyper_params);

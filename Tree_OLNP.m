@@ -253,12 +253,12 @@ classdef Tree_OLNP
                             % calculate weights
                             mu_tree__(k) = sigma_tree__(k)*E(dark_node_index)/P(1);
                             % calculate discriminant in each node
-                            y_discriminant__single = xt_tmp*w_avg(:,dark_node_index)+b_avg(dark_node_index);
+                            y_discriminant__single = xt_tmp*w(:,dark_node_index)+b(dark_node_index);
                             y_discriminant__(dark_node_index) = y_discriminant__single;
                             C__(dark_node_index) = sign(y_discriminant__single);
                         end
                         % probabilistic ensemble
-                        yt_predict_index = dark_node_indices(find(rand<cumsum(mu_tree),1,'first'));
+                        yt_predict_index = dark_node_indices(find(rand<cumsum(mu_tree__),1,'first'));
                         y_predict_tmp(j) = C__(yt_predict_index);
                     end
 
