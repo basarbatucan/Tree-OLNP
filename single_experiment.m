@@ -8,12 +8,12 @@ function model = single_experiment(tfpr, data_name, test_repeat, optimized_param
 	cross_val_MC = 8;
 
     % Define model hyper-parameter space
-    hyperparams.eta_init = [0.005];
+    hyperparams.eta_init = [0.01];
     hyperparams.beta_init = [400];
     hyperparams.gamma = 1;
-    hyperparams.sigmoid_h = [-3];
+    hyperparams.sigmoid_h = [-2];
     hyperparams.lambda = 0;
-    hyperparams.tree_depth = [8];
+    hyperparams.tree_depth = [6];
     hyperparams.split_prob = 0.5;
     hyperparams.node_loss_constant = [4];
 

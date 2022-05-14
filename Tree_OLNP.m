@@ -119,7 +119,8 @@ classdef Tree_OLNP
             % init accumulators
             tp = 0;
             fp = 0;
-            test_i = logspace(1, log10(n_samples_train), test_repeat+1);
+%             test_i = logspace(1, log10(n_samples_train), test_repeat+1);
+            test_i = linspace(0, n_samples_train, test_repeat+1);
             test_i = round(test_i(2:end));
             current_test_i = 1;
 

@@ -4,7 +4,7 @@ clc
 
 % only look at first 5 for other analysis
 tfprs = [5e-3, 1e-2, 5e-2, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
-tfpr_index = 1;
+tfpr_index = 4;
 MC = 32;
 forced_parameter_tuning_flag = 1;
 
@@ -13,9 +13,9 @@ data_name = 'banana';
 % data_name = 'covertype';
 % data_name = 'fourclass';
 % data_name = 'miniboone_pid';
-% data_name = 'phishing';
-% data_name = 'satellite';
-% data_name = 'telescope';
+% data_name = 'phishing';2
+% data_name = 'satellite';4
+% data_name = 'telescope';3
 
 out_data = sprintf('./output/%s/res_%03d.mat', data_name, tfpr_index);
 out_hyper = sprintf('./output/%s/res_hyper_%03d.mat', data_name, tfpr_index);
@@ -50,7 +50,7 @@ end
 % hyperparameter is available
 hyper_params = load(out_hyper);
 % run the model with hyperparams
-test_repeat = 100;
+test_repeat = 150;
 
 % test tun with the selected parameters
 % comment this part in order to ignore one additional
