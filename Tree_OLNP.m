@@ -8,11 +8,7 @@ classdef Tree_OLNP
         
         % parameters
         w_
-        w_acc_
-        w_avg_
         b_
-        b_acc_
-        b_avg_
         connectivity_
         node_pc_means_
         P_
@@ -36,6 +32,7 @@ classdef Tree_OLNP
         fpr_test_array_
         neg_class_weight_train_array_
         pos_class_weight_train_array_
+        test_indices_
         
     end
     
@@ -95,12 +92,8 @@ classdef Tree_OLNP
             mu_tree = zeros(tree_depth+1,1);
             
             % perceptron parameters
-            w = randn(n_features, tree_node_number);                       % weight of each node
-            w_acc = zeros(n_features, tree_node_number);                   % weight of each node
-            w_avg = zeros(n_features, tree_node_number);                   % weight of each node
-            b = randn(1, tree_node_number);                                % bias of each node
-            b_acc = zeros(1, tree_node_number);                            % bias of each node
-            b_avg = zeros(1, tree_node_number);                            % bias of each node
+            w = randn(n_features, tree_node_number)*1e-4;                  % weight of each node
+            b = randn(1, tree_node_number)*1e-4;                           % bias of each node
             
             eta = eta_init;
             beta_init = beta_init/number_of_negative_samples;              % after augmentation, we scale learning rate for class specific weight
@@ -111,11 +104,7 @@ classdef Tree_OLNP
             
             % save initial model parameters
             obj.w_ = w;
-            obj.w_acc_ = w_acc;
-            obj.w_avg_ = w_avg;
             obj.b_ = b;
-            obj.b_acc_ = b_acc;
-            obj.b_avg_ = b_avg;
             obj.connectivity_ = connectivity;
             obj.node_pc_means_ = node_pc_means;
             obj.P_ = P;
@@ -130,8 +119,8 @@ classdef Tree_OLNP
             % init accumulators
             tp = 0;
             fp = 0;
-            test_i = linspace(1, n_samples_train, test_repeat+1);
-            test_i=round(test_i(2:end));
+            test_i = logspace(1, log10(n_samples_train), test_repeat+1);
+            test_i = round(test_i(2:end));
             current_test_i = 1;
 
             % array outputs
@@ -176,18 +165,17 @@ classdef Tree_OLNP
 
                     % calculate weights
                     mu_tree(k) = sigma_tree(k)*E(dark_node_index)/P(1);
+                    if k==length(dark_node_indices)
+                        mu_tree(k) = 1-sum(mu_tree(1:k-1));
+                    end
                     
                     % calculate discriminant in each node
-                    w_acc(:,dark_node_index) = w_acc(:,dark_node_index) + w(:,dark_node_index);
-                    w_avg(:,dark_node_index) = w_acc(:,dark_node_index)/i;
-                    b_acc(dark_node_index) = b_acc(dark_node_index) + b(dark_node_index);
-                    b_avg(dark_node_index) = b_acc(dark_node_index)/i;
-                    y_discriminant_ = xt*w_avg(:,dark_node_index)+b_avg(dark_node_index);
+                    y_discriminant_ = xt*w(:,dark_node_index)+b(dark_node_index);
                     y_discriminant(dark_node_index) = y_discriminant_;
                     C(dark_node_index) = sign(y_discriminant_);
                     
                 end
-
+                
                 % probabilistic ensemble
                 yt_predict_index = [];
                 while isempty(yt_predict_index)
@@ -238,27 +226,30 @@ classdef Tree_OLNP
                         % get the sample
                         xt_tmp = X_test(j,:);
                         % find dark nodes
-                        dark_node_indices = obj.find_dark_nodes(xt_tmp);
-                        for k=1:length(dark_node_indices)
-                            dark_node_index = dark_node_indices(k);
+                        dark_node_indices__ = obj.find_dark_nodes(xt_tmp);
+                        for k=1:length(dark_node_indices__)
+                            dark_node_index = dark_node_indices__(k);
                             % calculate sigma
                             if k==1
                                 sigma_tree__(k) = 1-split_prob;
                             else
                                 sigma_tree__(k) = (1-split_prob)*P(connectivity(dark_node_index, 2))*sigma_tree__(k-1);
-                                if k==length(dark_node_indices)
+                                if k==length(dark_node_indices__)
                                     sigma_tree__(k)=sigma_tree__(k)/(1-split_prob);
                                 end
                             end
                             % calculate weights
                             mu_tree__(k) = sigma_tree__(k)*E(dark_node_index)/P(1);
+                            if k==length(dark_node_indices__)
+                                mu_tree__(k) = 1-sum(mu_tree__(1:k-1));
+                            end
                             % calculate discriminant in each node
                             y_discriminant__single = xt_tmp*w(:,dark_node_index)+b(dark_node_index);
                             y_discriminant__(dark_node_index) = y_discriminant__single;
                             C__(dark_node_index) = sign(y_discriminant__single);
                         end
                         % probabilistic ensemble
-                        yt_predict_index = dark_node_indices(find(rand<cumsum(mu_tree__),1,'first'));
+                        yt_predict_index = dark_node_indices__(find(rand<cumsum(mu_tree__),1,'first'));
                         y_predict_tmp(j) = C__(yt_predict_index);
                     end
 
@@ -330,7 +321,8 @@ classdef Tree_OLNP
                     % get the node loss
                     z = yt*y_discriminant(dark_node_index);
                     dloss_dz = utility_functions.deriv_sigmoid_loss(z,sigmoid_h);
-                    loss = mu*dloss_dz - gamma*tfpr;
+                    node_loss = utility_functions.sigmoid_loss(z,sigmoid_h);
+                    loss = mu*node_loss - gamma*tfpr;
                     % update node performance
                     E(dark_node_index) = E(dark_node_index)*exp(node_loss_constant*loss);
                     % update node prob
@@ -351,7 +343,7 @@ classdef Tree_OLNP
                 end
 
                 % update learning rate of perceptron
-                eta = eta_init/(1+lambda*(number_of_positive_samples + number_of_negative_samples));
+                %eta = eta_init/(1+lambda*(number_of_positive_samples + number_of_negative_samples));
 
                 % y(t)
                 if yt==1
@@ -371,11 +363,7 @@ classdef Tree_OLNP
             
             % save calculated parameters
             obj.w_ = w;
-            obj.w_acc_ = w_acc;
-            obj.w_avg_ = w_avg;
             obj.b_ = b;
-            obj.b_acc_ = b_acc;
-            obj.b_avg_ = b_avg;
             obj.connectivity_ = connectivity;
             obj.node_pc_means_ = node_pc_means;
             obj.P_ = P;
@@ -389,6 +377,7 @@ classdef Tree_OLNP
             obj.fpr_test_array_ = fpr_test_array;
             obj.neg_class_weight_train_array_ = neg_class_weight_train_array;
             obj.pos_class_weight_train_array_ = pos_class_weight_train_array;
+            obj.test_indices_ = test_i;
             
         end
         

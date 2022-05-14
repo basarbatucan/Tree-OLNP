@@ -50,6 +50,8 @@ classdef utility_functions
                     augmented_x(start_i:end_i, :) = x(shuffle_i, :);
                     augmented_y(start_i:end_i, :) = y(shuffle_i, :);
                 end
+                augmented_x = augmented_x(1:augmentation_size,:);
+                augmented_y = augmented_y(1:augmentation_size);
             else
                 % no concat
                 augmented_x = x;
@@ -122,13 +124,22 @@ classdef utility_functions
                         end
                         % calculate weights
                         mu_tree(k) = sigma_tree(k)*E(dark_node_index)/P(1);
+                        if k==length(dark_node_indices)
+                            mu_tree(k) = 1-sum(mu_tree(1:k-1));
+                        end
                         % calculate discriminant in each node
                         y_discriminant_ = xt*w(:,dark_node_index)+b(dark_node_index);
                         y_discriminant(dark_node_index) = y_discriminant_;
                         C(dark_node_index) = sign(y_discriminant_);
                     end
                     % probabilistic ensemble
-                    yt_predict_index = dark_node_indices(find(rand<cumsum(mu_tree),1,'first'));
+                    
+                    %yt_predict_index = dark_node_indices(find(rand<cumsum(mu_tree),1,'first'));
+                    
+                    [~, bb] = max(mu_tree);
+                    bb=bb(1);
+                    yt_predict_index  = dark_node_indices(bb);
+                    
                     yt_predict = C(yt_predict_index);
                     Z(i,j) = yt_predict;
                 end
@@ -155,13 +166,21 @@ classdef utility_functions
                     end
                     % calculate weights
                     mu_tree(k) = sigma_tree(k)*E(dark_node_index)/P(1);
+                    if k==length(dark_node_indices)
+                        mu_tree(k) = 1-sum(mu_tree(1:k-1));
+                    end
                     % calculate discriminant in each node
                     y_discriminant_ = xt*w(:,dark_node_index)+b(dark_node_index);
                     y_discriminant(dark_node_index) = y_discriminant_;
                     C(dark_node_index) = sign(y_discriminant_);
                 end
                 % probabilistic ensemble
-                yt_predict_index = dark_node_indices(find(rand<cumsum(mu_tree),1,'first'));
+%                 yt_predict_index = dark_node_indices(find(rand<cumsum(mu_tree),1,'first'));
+                
+                [~, bb] = max(mu_tree);
+                bb=bb(1);
+                yt_predict_index  = dark_node_indices(bb);
+                    
                 y_pred(i) = C(yt_predict_index);
             end
             
@@ -172,9 +191,9 @@ classdef utility_functions
 
             % plot the decision boundary
             % plot the main data
-            gscatter(x_(:,1),x_(:,2),y_label, 'brg', 'xo*');
-            xlabel('X_1');
-            ylabel('X_2');
+            gscatter(x_(:,1),x_(:,2), y_label, 'brg', 'xo*');
+%             xlabel('X_1');
+%             ylabel('X_2');
             grid on
             hold on
 
