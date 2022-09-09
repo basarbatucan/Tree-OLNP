@@ -13,7 +13,7 @@ function model = single_experiment(tfpr, data_name, test_repeat, optimized_param
     hyperparams.gamma = 1;
     hyperparams.sigmoid_h = [-2];
     hyperparams.lambda = 0;
-    hyperparams.tree_depth = [6];
+    hyperparams.tree_depth = [2];
     hyperparams.split_prob = 0.5;
     hyperparams.node_loss_constant = [4];
 
