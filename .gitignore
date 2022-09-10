@@ -1,6 +1,7 @@
 !data/
 data/*
-!data/banana
+!data/banana.csv
+!data/ucsdped2.csv
 
 !output/
 output/*

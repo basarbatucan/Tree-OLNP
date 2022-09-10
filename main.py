@@ -7,14 +7,10 @@ import numpy as np
 
 from tree_olnp.tree_olnp import tree_olnp
 
-# run parameters
-manual_partitioning = False # manual partitioning flag is for introducing additional features for partitioning
-
 # main 
 # np-nn works for 1,-1 classification
 # we expect data to be in tabular form with the latest column as target (check ./data/banana.csv)
 data = pd.read_csv('./data/banana.csv')
-#data = pd.read_csv('./data/ucsdped2.csv')
 X = data.iloc[:,:-1].values
 y = data.iloc[:,-1].values
 
@@ -22,23 +18,13 @@ y = data.iloc[:,-1].values
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
 # normalization
-if manual_partitioning:
-    # this case uses image data for NP classification
-    # spatial partitioning is executed
-    # first 2D of X should contain the center locations of detected objects
-    sc = StandardScaler()
-    X_train[:,2:] = sc.fit_transform(X_train[:,2:])
-    X_test[:,2:] = sc.transform (X_test[:,2:])
-
-else:
-    # feature partitioning
-    sc = StandardScaler()
-    X_train = sc.fit_transform(X_train)
-    X_test = sc.transform (X_test)
+sc = StandardScaler()
+X_train = sc.fit_transform(X_train)
+X_test = sc.transform (X_test)
 
 # classifier definition
 # Note that cross validation is not applied here, it will be implemented in the future versions
-TreeOlnp = tree_olnp(tree_depth_ = 4, projection_type_ = 'PCA', max_x_=360, max_y_=240)
+TreeOlnp = tree_olnp(tree_depth_ = 4, projection_type_ = 'PCA')
 
 # training
 TreeOlnp.fit(X_train, y_train)

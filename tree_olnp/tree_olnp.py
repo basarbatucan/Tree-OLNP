@@ -337,11 +337,19 @@ class tree_olnp:
         leaf_nodes = np.array(leaf_nodes)
 
         if self.projection_type_ != 'manual':
+            # run region visualiztion for 2D cases only
+            if X.shape[1] != 2:
+                return None
+
+            # for each X, identify the visited leaf node and visualize it
             f,ax = plt.subplots(1,1,figsize=(12,8))
             for leaf_index in set(leaf_nodes):
                 target_index = leaf_nodes == leaf_index
                 ax.scatter(X[target_index, 0], X[target_index, 1], marker='o', label = "{}".format(leaf_index))
-            plt.show()
+            plt.xlabel('X1')
+            plt.ylabel('X2')
+            plt.title('Node regions')
+            plt.savefig('./figures/test__node_regions_visualized.png')
         else:
             leaf_dict = dict()
             leaf_dict['x'] = []
@@ -355,9 +363,13 @@ class tree_olnp:
             leaf_df = leaf_df.groupby(['x', 'y']).agg({'number_of_objects':'sum'}).reset_index()
             leaf_df.plot(kind='scatter', x='x', y='y', s='number_of_objects')
             plt.xlim([0, self.max_x_])
+            plt.xlabel('X')
             plt.ylim([0, self.max_y_])
+            plt.ylabel('Y')
             plt.gca().invert_yaxis()
-            plt.show()
+            plt.grid()
+            plt.title('Location of leaf nodes (size is scaled with # of visited samples)')
+            plt.savefig('./figures/test__leaf_nodes_visualized.png')
 
         return None
 
