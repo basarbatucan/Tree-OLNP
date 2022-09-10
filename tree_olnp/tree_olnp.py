@@ -77,6 +77,8 @@ class tree_olnp:
 
         # calculate node centers
         # this information is used to determine how a sample propagates from top to root
+        # Note that tree olnp requires an sample (subset of whole data set is ok) to initialize the tree
+        # User can provide seperate feature set for context tree initialization
         self.__init_partitioner(X)
 
     # aux functions
