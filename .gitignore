@@ -2,6 +2,10 @@
 data/*
 !data/banana.csv
 !data/ucsdped2.csv
+!data/test_ucsdped2_dyn_img_features.csv
+!data/test_ucsdped2_img_features.csv
+!data/train_dynamic_img_features.csv
+!data/train_img_features.csv
 
 !output/
 output/*
