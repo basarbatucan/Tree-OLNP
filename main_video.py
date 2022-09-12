@@ -10,13 +10,24 @@ from tree_olnp.tree_olnp import tree_olnp
 # main 
 # np-nn works for 1,-1 classification
 # we expect data to be in tabular form with the latest column as target (check ./data/banana.csv)
-data = pd.read_csv('./data/ucsdped2.csv')
-X = data.iloc[:,:-1].values
-y = data.iloc[:,-1].values
+#data = pd.read_csv('./data/ucsdped2.csv')
+#X = data.iloc[:,:-1].values
+#y = data.iloc[:,-1].values
 
 # train test split
 # add time based for video
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+#X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+#train = pd.read_csv('./data/train_img_features.csv')
+#test = pd.read_csv('./data/test_ucsdped2_img_features.csv')
+
+train = pd.read_csv('./data/train_dynamic_img_features.csv')
+test = pd.read_csv('./data/test_ucsdped2_dyn_img_features.csv')
+
+X_train = train.iloc[:, :-1].values
+y_train = train.iloc[:, -1].values
+X_test = test.iloc[:, :-1].values
+y_test = test.iloc[:, -1].values
 
 # normalization
 sc = StandardScaler()
