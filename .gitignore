@@ -11,5 +11,3 @@ data/*
 output/*
 !output/banana/
 output/banana/*
-
-main_video_mc.py
