@@ -10,16 +10,16 @@ from tree_olnp.tree_olnp import tree_olnp
 # main 
 
 # static
-train = pd.read_csv('./data/train_img_features.csv')
-test = pd.read_csv('./data/test_ucsdped2_img_features.csv')
+#train = pd.read_csv('./data/train_img_features.csv')
+#test = pd.read_csv('./data/test_ucsdped2_img_features.csv')
 
 # dynamic
 #train = pd.read_csv('./data/train_dynamic_img_features.csv')
 #test = pd.read_csv('./data/test_ucsdped2_dyn_img_features.csv')
 
 # cvpr
-#train = pd.read_csv('./data/train_dynamic_img_features.csv')
-#test = pd.read_csv('./data/test_ucsdped2_dyn_img_features.csv')
+train = pd.read_csv('./data/train_ucsdped2_features_cvpr.csv')
+test = pd.read_csv('./data/test_ucsdped2_features_cvpr.csv')
 
 # create test and train sets
 X_train = train.iloc[:, :-1].values
@@ -70,11 +70,10 @@ for i in range(0, len(tfprs)):
         tn, fp, fn, tp = confusion_matrix(y_train, y_pred_train).ravel()
         FPR = fp/(fp+tn)
         TPR = tp/(tp+fn)
-        print("Train, Tree-OLNP, TPR: {:.3f}, FPR: {:.3f}".format(TPR, FPR))
+        print("({},{}) - Train, Tree-OLNP, TPR: {:.3f}, FPR: {:.3f}".format(i, j, TPR, FPR))
         # save outputs
         fpr_train[j, i] = FPR
         tpr_train[j, i] = TPR
-
 
 np.savetxt("./output/fpr_test.csv", fpr_test, delimiter=",")
 np.savetxt("./output/tpr_test.csv", tpr_test, delimiter=",")

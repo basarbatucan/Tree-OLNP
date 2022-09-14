@@ -6,8 +6,3 @@ data/*
 !data/test_ucsdped2_img_features.csv
 !data/train_dynamic_img_features.csv
 !data/train_img_features.csv
-
-!output/
-output/*
-!output/banana/
-output/banana/*
