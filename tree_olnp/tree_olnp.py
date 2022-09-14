@@ -1,5 +1,3 @@
-from os import P_ALL
-from platform import node
 import numpy as np
 from sklearn.decomposition import PCA
 import pandas as pd
@@ -111,8 +109,8 @@ class tree_olnp:
         # User can provide seperate feature set for context tree initialization
         self.__init_partitioner(X)
 
-        P = np.ones((number_of_nodes,), dtype=np.float128)                                # node probability
-        E = np.ones((number_of_nodes,), dtype=np.float128)                                # prediction performance of node n
+        P = np.ones((number_of_nodes,), dtype=np.float64)                                # node probability
+        E = np.ones((number_of_nodes,), dtype=np.float64)                                # prediction performance of node n
         y_discriminant = np.zeros((number_of_nodes,))                  # discriminant of nodes
         C = np.ones((number_of_nodes,))                                # prediction of nodes
         node_loss_constant = node_loss_constant*(-320)/n_samples;      # adjustment to the learning rate to prevent numerical error
