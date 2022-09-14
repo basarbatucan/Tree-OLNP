@@ -18,11 +18,21 @@ from tree_olnp.tree_olnp import tree_olnp
 # add time based for video
 #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
+train = pd.read_csv('./data/train_dynamic_img_features.csv')
+test = pd.read_csv('./data/test_ucsdped2_dyn_img_features.csv')
+
 #train = pd.read_csv('./data/train_img_features.csv')
 #test = pd.read_csv('./data/test_ucsdped2_img_features.csv')
 
-train = pd.read_csv('./data/train_dynamic_img_features.csv')
-test = pd.read_csv('./data/test_ucsdped2_dyn_img_features.csv')
+# change row and col
+tmp_0 = train.iloc[:, 0].copy()
+tmp_1 = train.iloc[:, 1].copy()
+train.iloc[:, 0] = tmp_1
+train.iloc[:, 1] = tmp_0
+tmp_0 = test.iloc[:, 0].copy()
+tmp_1 = test.iloc[:, 1].copy()
+test.iloc[:, 0] = tmp_1
+test.iloc[:, 1] = tmp_0
 
 X_train = train.iloc[:, :-1].values
 y_train = train.iloc[:, -1].values
@@ -36,7 +46,7 @@ X_test[:,2:] = sc.transform (X_test[:,2:])
 
 # classifier definition
 # Note that cross validation is not applied here, it will be implemented in the future versions
-TreeOlnp = tree_olnp(tfpr_ = 0.1, tree_depth_ = 5, sigmoid_h_ = -3, node_loss_constant_ = 6, projection_type_ = 'manual', max_x_=360, max_y_=240)
+TreeOlnp = tree_olnp(tfpr_ = 0.1, tree_depth_ = 8, sigmoid_h_ = -2, node_loss_constant_ = 10, projection_type_ = 'manual', max_x_=360, max_y_=240)
 
 # training
 TreeOlnp.fit(X_train, y_train)
