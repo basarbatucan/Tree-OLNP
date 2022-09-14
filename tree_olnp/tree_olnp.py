@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 class tree_olnp:
 
-    def __init__(self, tfpr_=0.1, eta_init_=0.01, beta_init_=100, sigmoid_h_=-1, Lambda_=0, tree_depth_=2, split_prob_=0.5, node_loss_constant_=1, projection_type_='PCA', ensemble_type_='probabilistic', max_x_= None, max_y_ = None) -> None:
+    def __init__(self, tfpr_=0.1, eta_init_=0.01, beta_init_=100, sigmoid_h_=-1, Lambda_=0, tree_depth_=2, split_prob_=0.5, node_loss_constant_=1, projection_type_='PCA', ensemble_type_='probabilistic', max_row_= None, max_col_ = None) -> None:
         
         # hyperparameters
         self.tfpr = tfpr_
@@ -32,8 +32,9 @@ class tree_olnp:
         self.E_ = None
         # below two parameters are used in space partitioning
         # algorithm needs to know size of the space
-        self.max_x_ = max_x_
-        self.max_y_ = max_y_
+        self.max_row_ = max_row_
+        self.max_col_ = max_col_
+        
         
         # below arrays are used to store learning performance of npnn
         self.mu_train_array_ = None
@@ -530,14 +531,14 @@ class tree_olnp:
 
             # create the space
             N = 100
-            max_x = self.max_x_
-            max_y = self.max_y_
-            x = np.linspace(0, max_x, N)
-            y = np.linspace(0, max_y, N)
+            max_row = self.max_row_
+            max_col = self.max_col_
+            r = np.linspace(0, max_row, N)
+            c = np.linspace(0, max_col, N)
             node_index=0
-            [xx, yy] = np.meshgrid(x, y) # X and Y contains all the points in space
-            coords_x = xx.flatten() # note that x is mapped to the columns (as column increases x increases) in matrix (2nd dimension)
-            coords_y = yy.flatten() # note that y is mapped to the rows (as row increases y increases) (1st dimension)
+            [rr, cc] = np.meshgrid(r, c) # rows and cols contains all the points in space
+            coords_rr = rr.flatten()
+            coords_cc = cc.flatten()
 
             # create array for saving dark indices
             dark_node_indices = np.ones((N**2, max_depth+1))
@@ -564,25 +565,25 @@ class tree_olnp:
                         left_child_index = np.zeros(N**2, dtype=bool)
                         right_child_index = np.zeros(N**2, dtype=bool)
                         # calculate the mean of the existing index
-                        center_x = coords_x[current_set_index].mean()
-                        center_y = coords_y[current_set_index].mean()
-                        partitioner['spatial_center'][node_index, 0] = center_x # note that we assume the first two dimension is center
-                        partitioner['spatial_center'][node_index, 1] = center_y
+                        center_rr = coords_rr[current_set_index].mean()
+                        center_cc = coords_cc[current_set_index].mean()
+                        partitioner['spatial_center'][node_index, 0] = center_rr # note that we assume the first two dimension is center
+                        partitioner['spatial_center'][node_index, 1] = center_cc
                         # assign left and right subset from the current set (skip if leaf)
                         if selected_dim == 0:
-                            # assign with respect to x
-                            left_child_index[current_set_index] = coords_x[current_set_index] <= center_x
-                            right_child_index[current_set_index] = coords_x[current_set_index] > center_x
+                            # assign with respect to rows
+                            left_child_index[current_set_index] = coords_rr[current_set_index] <= center_rr
+                            right_child_index[current_set_index] = coords_rr[current_set_index] > center_rr
                         else:
-                            # assign with respect to y
-                            left_child_index[current_set_index] = coords_y[current_set_index] <= center_y
-                            right_child_index[current_set_index] = coords_y[current_set_index] > center_y
+                            # assign with respect to cols
+                            left_child_index[current_set_index] = coords_cc[current_set_index] <= center_cc
+                            right_child_index[current_set_index] = coords_cc[current_set_index] > center_cc
                         if i<max_depth:
                             dark_node_indices[left_child_index, i+1] = 2*node_index+1
                             dark_node_indices[right_child_index, i+1] = 2*node_index+2
                     else:
-                        partitioner['spatial_center'][node_index, 0] = max_x*0.5
-                        partitioner['spatial_center'][node_index, 1] = max_y*0.5
+                        partitioner['spatial_center'][node_index, 0] = max_row*0.5
+                        partitioner['spatial_center'][node_index, 1] = max_col*0.5
 
                     # update node index
                     node_index+=1
@@ -625,19 +626,19 @@ class tree_olnp:
             plt.savefig('./figures/test__node_regions_visualized.png')
         else:
             leaf_dict = dict()
-            leaf_dict['x'] = []
-            leaf_dict['y'] = []
+            leaf_dict['row'] = []
+            leaf_dict['col'] = []
             leaf_dict['number_of_objects'] = []
             for leaf in leaf_nodes:
-                leaf_dict['x'].append(self.partitioner_['spatial_center'][leaf,0])
-                leaf_dict['y'].append(self.partitioner_['spatial_center'][leaf,1])
+                leaf_dict['row'].append(self.partitioner_['spatial_center'][leaf,0])
+                leaf_dict['col'].append(self.partitioner_['spatial_center'][leaf,1])
                 leaf_dict['number_of_objects'].append(1)
             leaf_df = pd.DataFrame().from_dict(leaf_dict)
-            leaf_df = leaf_df.groupby(['x', 'y']).agg({'number_of_objects':'sum'}).reset_index()
-            leaf_df.plot(kind='scatter', x='x', y='y', s='number_of_objects')
-            plt.xlim([0, self.max_x_])
+            leaf_df = leaf_df.groupby(['row', 'col']).agg({'number_of_objects':'sum'}).reset_index()
+            leaf_df.plot(kind='scatter', x='col', y='row', s='number_of_objects')
+            plt.xlim([0, self.max_col_])
             plt.xlabel('X')
-            plt.ylim([0, self.max_y_])
+            plt.ylim([0, self.max_row_])
             plt.ylabel('Y')
             plt.gca().invert_yaxis()
             plt.grid()
