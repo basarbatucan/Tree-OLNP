@@ -6,3 +6,5 @@ data/*
 !data/test_ucsdped2_img_features.csv
 !data/train_dynamic_img_features.csv
 !data/train_img_features.csv
+!data/train_ucsdped2_features_cvpr.csv
+!data/test_ucsdped2_features_cvpr.csv
