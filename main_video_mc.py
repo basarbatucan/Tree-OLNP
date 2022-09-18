@@ -46,6 +46,9 @@ tpr_train = np.zeros((MC, len(tfprs)))
 for i in range(0, len(tfprs)):
     for j in range(0, MC):
 
+        # runner
+        print("({},{})".format(i, j))
+
         # classifier definition
         # Note that cross validation is not applied here, it will be implemented in the future versions
         TreeOlnp = tree_olnp(tfpr_ = tfprs[i], tree_depth_ = 5, beta_init_= beta_inits[i], sigmoid_h_ = -2, node_loss_constant_ = 1, projection_type_ = 'manual', max_row_=240, max_col_=360)
@@ -70,7 +73,7 @@ for i in range(0, len(tfprs)):
         tn, fp, fn, tp = confusion_matrix(y_train, y_pred_train).ravel()
         FPR = fp/(fp+tn)
         TPR = tp/(tp+fn)
-        print("({},{}) - Train, Tree-OLNP, TPR: {:.3f}, FPR: {:.3f}".format(i, j, TPR, FPR))
+        print("Train, Tree-OLNP, TPR: {:.3f}, FPR: {:.3f}".format(TPR, FPR))
         # save outputs
         fpr_train[j, i] = FPR
         tpr_train[j, i] = TPR
