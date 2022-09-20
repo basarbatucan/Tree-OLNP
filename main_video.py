@@ -24,7 +24,7 @@ X_test[:,2:] = sc.transform (X_test[:,2:])
 
 # classifier definition
 # Note that cross validation is not applied here, it will be implemented in the future versions
-TreeOlnp = tree_olnp(tfpr_ = 0.3, tree_depth_ = 5, beta_init_= 200, sigmoid_h_ = -2, node_loss_constant_ = 2, projection_type_ = 'manual', max_row_=240, max_col_=360)
+TreeOlnp = tree_olnp(tfpr_ = 0.1, tree_depth_ = 5, beta_init_= 200, sigmoid_h_ = -2, node_loss_constant_ = 2, projection_type_ = 'manual', max_row_=240, max_col_=360)
 
 # training
 TreeOlnp.fit(X_train, y_train)
