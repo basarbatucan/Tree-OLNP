@@ -1,25 +1,26 @@
 import numpy as np
 from sklearn.decomposition import PCA
 import pandas as pd
+from sklearn.metrics import confusion_matrix
 
 # delete later
 import matplotlib.pyplot as plt
 
 class tree_olnp:
 
-    def __init__(self, tfpr_=0.1, eta_init_=0.01, beta_init_=100, sigmoid_h_=-1, Lambda_=0, tree_depth_=2, split_prob_=0.5, node_loss_constant_=1, projection_type_='PCA', ensemble_type_='probabilistic', max_row_= None, max_col_ = None) -> None:
+    def __init__(self, tfpr=0.1, eta_init=0.01, beta_init=100, sigmoid_h=-1, Lambda=0, tree_depth=2, split_prob=0.5, node_loss_constant=1, projection_type='PCA', ensemble_type='probabilistic', max_row=None, max_col=None) -> None:
         
         # hyperparameters
-        self.tfpr = tfpr_
-        self.eta_init = eta_init_
-        self.beta_init = beta_init_
-        self.sigmoid_h = sigmoid_h_
-        self.Lambda = Lambda_
-        self.tree_depth_ = tree_depth_
-        self.split_prob_ = split_prob_
-        self.node_loss_constant_ = node_loss_constant_
-        self.projection_type_ = projection_type_
-        self.ensemble_type_ = ensemble_type_
+        self.tfpr = tfpr
+        self.eta_init = eta_init
+        self.beta_init = beta_init
+        self.sigmoid_h = sigmoid_h
+        self.Lambda = Lambda
+        self.tree_depth = tree_depth
+        self.split_prob = split_prob
+        self.node_loss_constant = node_loss_constant
+        self.projection_type = projection_type
+        self.ensemble_type = ensemble_type
 
         # parameters
         self.w_ = None # perceptron weight
@@ -28,11 +29,11 @@ class tree_olnp:
         self.partitioner_ = None
         self.P_ = None
         self.E_ = None
+
         # below two parameters are used in space partitioning
         # algorithm needs to know size of the space
-        self.max_row_ = max_row_
-        self.max_col_ = max_col_
-        
+        self.max_row = max_row
+        self.max_col = max_col
         
         # below arrays are used to store learning performance of npnn
         self.mu_train_array_ = None
@@ -41,10 +42,7 @@ class tree_olnp:
         self.neg_class_weight_train_array_ = None # learned weight for negative class (note that we assume binary classes are 1 and -1)
         self.pos_class_weight_train_array_ = None # learned weight for positive class
 
-        # initial calculations
-        self.number_of_nodes_ = 2**(tree_depth_+1)-1
-
-    def fit(self, X, y, n_samples_augmented_min=150e3):
+    def fit(self, X, y, **fit_params):
 
         # take the parameters
         tfpr = self.tfpr
@@ -53,17 +51,21 @@ class tree_olnp:
         gamma = 1 # this is initialized as 1, can change later
         sigmoid_h = self.sigmoid_h
         Lambda = self.Lambda
-        tree_depth = self.tree_depth_
-        split_prob = self.split_prob_
-        node_loss_constant = self.node_loss_constant_
-        projection_type = self.projection_type_
+        tree_depth = self.tree_depth
+        split_prob = self.split_prob
+        node_loss_constant = self.node_loss_constant
+        projection_type = self.projection_type
+
+        # set augmentation size
+        n_samples_augmented_min = 150e3
 
         # data related parameters
         n_samples, n_features = X.shape
 
         # context tree, structural parameters
         number_of_nodes = 2**(tree_depth+1)-1
-
+        self.number_of_nodes_ = number_of_nodes
+        
         # initiate perceptron parameters
         if projection_type == 'manual':
             # in manual projection, first 2D of the data is used as coords
@@ -75,7 +77,6 @@ class tree_olnp:
         # prepare the X
         # note that since this is an online algorithm, to have better conversion, we augment initial data
         # initiate the Fourier features
-        
         if n_samples<n_samples_augmented_min:
             # augmentation is necessary
             X_, y_ = self.__augment_data(X=X, y=y, n_samples=n_samples, n_features=n_features, n_samples_augmented_min=n_samples_augmented_min)
@@ -109,8 +110,8 @@ class tree_olnp:
         # User can provide seperate feature set for context tree initialization
         self.__init_partitioner(X)
 
-        P = np.ones((number_of_nodes,), dtype=np.float64)                                # node probability
-        E = np.ones((number_of_nodes,), dtype=np.float64)                                # prediction performance of node n
+        P = np.ones((number_of_nodes,), dtype=np.float64)              # node probability
+        E = np.ones((number_of_nodes,), dtype=np.float64)              # prediction performance of node n
         y_discriminant = np.zeros((number_of_nodes,))                  # discriminant of nodes
         C = np.ones((number_of_nodes,))                                # prediction of nodes
         node_loss_constant = node_loss_constant*(-320)/n_samples;      # adjustment to the learning rate to prevent numerical error
@@ -290,14 +291,14 @@ class tree_olnp:
         tfpr = self.tfpr
         P = self.P_
         E = self.E_
-        projection_type = self.projection_type_
+        projection_type = self.projection_type
 
-        number_of_nodes = 2**(self.tree_depth_+1)-1
-        sigma_tree = np.zeros((self.tree_depth_+1,))
-        mu_tree = np.zeros((self.tree_depth_+1, 1))
+        number_of_nodes = 2**(self.tree_depth+1)-1
+        sigma_tree = np.zeros((self.tree_depth+1,))
+        mu_tree = np.zeros((self.tree_depth+1, 1))
         y_discriminant = np.zeros((number_of_nodes, 1))
         C = np.zeros((number_of_nodes, 1))
-        split_prob = self.split_prob_
+        split_prob = self.split_prob
 
         for i in range(0, n_test):
             # take the input data
@@ -336,10 +337,47 @@ class tree_olnp:
 
         return y_predict
 
+    def score(self, X, y):
+        
+        y_pred = self.predict(X)
+        tn, fp, fn, tp = confusion_matrix(y, y_pred).ravel()
+        FPR = fp/(fp+tn)
+        TPR = tp/(tp+fn)
+        TFPR = self.tfpr
+        np_score = max(FPR, TFPR)/TFPR - TPR
+        # since less np_score is better, take negative of the score
+        np_score = -np_score
+
+        return np_score
+
+    def get_params(self, deep=True):
+
+        params = dict()
+        params['eta_init'] = self.eta_init
+        params['beta_init'] = self.beta_init
+        params['sigmoid_h'] = self.sigmoid_h
+        params['Lambda'] = self.Lambda
+        params['tree_depth'] = self.tree_depth
+        params['split_prob'] = self.split_prob
+        params['node_loss_constant'] = self.node_loss_constant
+        params['projection_type'] = self.projection_type
+        params['ensemble_type'] = self.ensemble_type
+        params['max_row'] = self.max_row
+        params['max_col'] = self.max_col
+
+        return params
+
+    def set_params(self, **params):
+
+        for key, val in params.items():
+            setattr(self, key, val)
+
+        return self
+
     # aux functions
     def __expert_ensemble(self, expert_predictions, expert_discriminants, expert_weights):
 
-        if self.ensemble_type_ == 'probabilistic':
+        if self.ensemble_type == 'probabilistic':
             expert_weight_pmf = np.cumsum(expert_weights)
             uniform_rv = np.random.rand(1)[0]
             bool_array = (uniform_rv <= expert_weight_pmf)
@@ -347,13 +385,13 @@ class tree_olnp:
             ensemble_prediction = expert_predictions[best_expert_index]
             return ensemble_prediction
 
-        elif self.ensemble_type_ == 'linear':
+        elif self.ensemble_type == 'linear':
             ensemble_discriminant = np.dot(expert_discriminants, expert_weights)
             ensemble_prediction = np.sign(ensemble_discriminant)
             return ensemble_prediction
 
     def __find_dark_nodes(self, xt):
-        dark_node_indices = np.zeros((self.tree_depth_+1,), dtype=np.int32)
+        dark_node_indices = np.zeros((self.tree_depth+1,), dtype=np.int32)
         dark_node_index = 0
         current_node_index = 0
 
@@ -362,7 +400,7 @@ class tree_olnp:
         dark_node_indices[dark_node_index] = current_node_index
         dark_node_index += 1
 
-        if self.projection_type_ != 'manual':
+        if self.projection_type != 'manual':
             
             while self.connectivity_[current_node_index, 3] != -1:
                 # project the node on the current pc
@@ -421,11 +459,11 @@ class tree_olnp:
         # this function calculates the node centers based on first 2 principle components of X
         # X is projected to 2D space, and corresponding node centers are calculated
         # currently only PCA is used for projection
-        max_depth = self.tree_depth_
+        max_depth = self.tree_depth
         n_samples = X.shape[0]
         n_features = X.shape[1]
 
-        if self.projection_type_ == 'PCA':
+        if self.projection_type == 'PCA':
 
             # create array for saving dark indices
             dark_node_indices = np.ones((n_samples, max_depth+1))
@@ -479,7 +517,7 @@ class tree_olnp:
                     # update node index
                     node_index+=1
 
-        elif self.projection_type_ == 'iterative_PCA':
+        elif self.projection_type == 'iterative_PCA':
 
             # create array for saving dark indices
             dark_node_indices = np.ones((n_samples, max_depth+1))
@@ -525,12 +563,12 @@ class tree_olnp:
                     # update node index
                     node_index+=1
 
-        elif self.projection_type_ == 'manual':
+        elif self.projection_type == 'manual':
 
             # create the space
             N = 100
-            max_row = self.max_row_
-            max_col = self.max_col_
+            max_row = self.max_row
+            max_col = self.max_col
             r = np.linspace(0, max_row, N)
             c = np.linspace(0, max_col, N)
             node_index=0
@@ -592,13 +630,10 @@ class tree_olnp:
 
         # update node centers
         self.partitioner_ = partitioner
-
-        # functional test
-        self.__test_init_partitioner(X)
         
         return None
 
-    def __test_init_partitioner(self, X):
+    def test_init_partitioner(self, X):
 
         leaf_nodes = []
         for i in range(0, X.shape[0]):
@@ -608,7 +643,7 @@ class tree_olnp:
             leaf_nodes.append(leaf_node)
         leaf_nodes = np.array(leaf_nodes)
 
-        if self.projection_type_ != 'manual':
+        if self.projection_type != 'manual':
             # run region visualiztion for 2D cases only
             if X.shape[1] != 2:
                 return None
@@ -634,9 +669,9 @@ class tree_olnp:
             leaf_df = pd.DataFrame().from_dict(leaf_dict)
             leaf_df = leaf_df.groupby(['row', 'col']).agg({'number_of_objects':'sum'}).reset_index()
             leaf_df.plot(kind='scatter', x='col', y='row', s='number_of_objects')
-            plt.xlim([0, self.max_col_])
+            plt.xlim([0, self.max_col])
             plt.xlabel('X')
-            plt.ylim([0, self.max_row_])
+            plt.ylim([0, self.max_row])
             plt.ylabel('Y')
             plt.gca().invert_yaxis()
             plt.grid()
@@ -650,7 +685,7 @@ class tree_olnp:
         total_number_of_node_relations = 4
         connectivity = np.ones((number_of_nodes, total_number_of_node_relations), dtype=np.int32)*-1
         node_index=0
-        for i in range(0, self.tree_depth_+1):
+        for i in range(0, self.tree_depth+1):
             for j in range(1, 2**i+1):
                 # define parent and sibling
                 if np.mod(node_index, 2) == 1:
@@ -705,11 +740,4 @@ class tree_olnp:
 
     def __sigmoid_loss(self, z, h):
         return 1/(1+np.exp(-h*z))
-        
-        
-        
-        
-        
-        
-        
         

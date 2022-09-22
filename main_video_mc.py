@@ -33,7 +33,6 @@ X_train[:,2:] = sc.fit_transform(X_train[:,2:])
 X_test[:,2:] = sc.transform (X_test[:,2:])
 
 # create monte carlo tests
-n_aug_samples = 150000
 tfprs =      [5e-3, 1e-2, 5e-2, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 beta_inits = [ 1e3,  1e3,  1e3, 5e2, 2e2, 2e2, 2e2, 2e2, 2e2, 2e2, 2e2, 2e2]
 MC = 10
@@ -51,29 +50,41 @@ for i in range(0, len(tfprs)):
 
         # classifier definition
         # Note that cross validation is not applied here, it will be implemented in the future versions
-        TreeOlnp = tree_olnp(tfpr_ = tfprs[i], tree_depth_ = 5, beta_init_= beta_inits[i], sigmoid_h_ = -2, node_loss_constant_ = 1, projection_type_ = 'manual', max_row_=240, max_col_=360)
+        TreeOlnp = tree_olnp(
+            tfpr = tfprs[i], 
+            tree_depth = 5, 
+            beta_init = beta_inits[i], 
+            sigmoid_h = -2, 
+            node_loss_constant = 1, 
+            projection_type = 'manual', 
+            max_row_=240, 
+            max_col_=360)
 
         # training
-        TreeOlnp.fit(X_train, y_train, n_samples_augmented_min=n_aug_samples)
+        TreeOlnp.fit(X_train, y_train)
 
         # prediction
         y_pred_test = TreeOlnp.predict(X_test)
+
         # evaluation
         tn, fp, fn, tp = confusion_matrix(y_test, y_pred_test).ravel()
         FPR = fp/(fp+tn)
         TPR = tp/(tp+fn)
         print("Test, Tree-OLNP, TPR: {:.3f}, FPR: {:.3f}".format(TPR, FPR))
+        
         # save outputs
         fpr_test[j, i] = FPR
         tpr_test[j, i] = TPR
 
         # prediction
         y_pred_train = TreeOlnp.predict(X_train)
+
         # evaluation
         tn, fp, fn, tp = confusion_matrix(y_train, y_pred_train).ravel()
         FPR = fp/(fp+tn)
         TPR = tp/(tp+fn)
         print("Train, Tree-OLNP, TPR: {:.3f}, FPR: {:.3f}".format(TPR, FPR))
+
         # save outputs
         fpr_train[j, i] = FPR
         tpr_train[j, i] = TPR
