@@ -33,7 +33,7 @@ parameters = {
     'beta_init': [100],               # default, 100
     'sigmoid_h': [-1],                # default, -1
     'Lambda':[0],                     # default, 0
-    'tree_depth':[2,3],               # default, 2
+    'tree_depth':[2, 6],              # default, 2
     'split_prob':[0.5],               # default, 0.5
     'node_loss_constant':[1]          # default, 1
     }
