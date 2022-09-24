@@ -1,47 +1,104 @@
-# Context Tree Based Online Nonlinear Neyman-Pearson Classification
-This is the repository for Context Tree based, Online Neyman Pearson (Tree-OLNP) Classifier described in [1]: 
+# A Neural Network Approach for Online Nonlinear Neyman-Pearson Classification
+This is the repository for Online Nonlinear Neyman Pearson (NP) Classifier described in [1]: https://ieeexplore.ieee.org/document/9302287. <br/>
+Proposed model is an online, nonlinear, ensemble (context tree based) NP classifier. In NP framework, the target is to maximize detection power while upper-bounding the false alarm. Implemented model is compatible with sklearn's gridsearchcv function. It can be used for fine tuning. You can find example usage below. 
 
-This implementation also contains cross-validation of the hyper-parameters. Best set of hyper-parameters are selected based on NP-score with grid search.<br/>
+# Tree-OLNP parameters
+    tfpr = 0.1                # target false alarm
+    eta_init = 0.01           # initial learning rate for perceptron
+    beta_init = 100           # initial learning rate for class weights, this is scaled by 1/total_number_of_negative_samples in code for better convergence
+    sigmoid_h = -1            # sigmoid function parameter
+    Lambda = 0                # regularization parameter
+    tree_depth = 2            # depth of the context tree, total partition (expert) number ~ 1.5**2**tree_depth
+    split_prob = 0.1          # probability of split within the context tree. Ensemble model favors simple models when the number of observed sample is low. Split prob determines the initial cost for complex models.
+    node_loss_constant = 1    # learning rate for context tree framework
 
-# Evaluating and Using the results
-Running the model will generate 6 different graphs.<br/>
-These graphs correspond to transient behaviour of the model during training.<br/>
-In order to look at the final results, use the latest element of each array for the corresponding metric.<br/>
-Graphs of the 6 different arrays are shown below.<br/>
-<img src="figures/code_output.png"><br/>
+# Example Usage
+    import pandas as pd
+    from sklearn.model_selection import train_test_split, GridSearchCV
+    from sklearn.metrics import confusion_matrix
+    from sklearn.preprocessing import StandardScaler
+    import matplotlib.pyplot as plt
+    import numpy as np
 
-Top and bottom figures are related to train and test, respectively. The number of samples in training is related to the augmentation (explained in model parameters).<br/>
-In current case, the number of training samples is ~150k. Similarly, for test figures, there are 100 data points, where each point is an individual test of the existing<br/>
-Model also calculates the weights for each class in order to satisfy target false alarm declared by the user.<br/>
-model at different stages of the training. Please refer to the paper for more detailed explanation.<br/>
+    from tree_olnp.tree_olnp import tree_olnp
 
-# Running the Model with a new data set
-In order to run the full pipeline with a new dataset
-* Make sure downloaded data has the same fields with ./data/banana.mat
-* Make sure the downloaded data is located under the data folder.
-* Update the pipeline parameter showing the directory for the input data
-* Include additional hyperparameters for better performance
+    # Target False Alarm
+    # NP framework aims to maximize the detection power while upper bounding the false alarm rate
+    # target false alarm rate should be determined by the user
+    target_FPR = 0.1
+
+    # main 
+    # np-nn works for 1,-1 classification
+    # we expect data to be in tabular form with the latest column as target (check ./data/banana.csv)
+    data = pd.read_csv('./data/banana.csv')
+    X = data.iloc[:,:-1].values
+    y = data.iloc[:,-1].values
+
+    # train test split
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+    # normalization
+    sc = StandardScaler()
+    X_train = sc.fit_transform(X_train)
+    X_test = sc.transform (X_test)
+
+    # define hyperparameters
+    parameters = {
+        'eta_init': [0.01],               # default, 0.01
+        'beta_init': [100],               # default, 100
+        'sigmoid_h': [-1],                # default, -1
+        'Lambda':[0],                     # default, 0
+        'tree_depth':[2, 6],              # default, 2
+        'split_prob':[0.5],               # default, 0.5
+        'node_loss_constant':[1]          # default, 1
+        }
+
+    # classifier definition
+    # Note that cross validation is not applied here, it will be implemented in the future versions
+    TreeOlnp = tree_olnp(tfpr = target_FPR, projection_type = 'iterative_PCA')
+
+    # hyperparameter tuning
+    clf = GridSearchCV(TreeOlnp, parameters, verbose=3, cv=2, n_jobs=-1)
+
+    # training
+    clf.fit(X_train, y_train)
+
+    # print best params
+    print(clf.best_params_)
+
+    # get best estimator
+    best_tree_olnp = clf.best_estimator_
+
+    # plot space partition
+    best_tree_olnp.test_init_partitioner(X_test)
+
+    # prediction
+    y_pred = best_tree_olnp.predict(X_test)
+
+    # evaluation
+    tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+    FPR = fp/(fp+tn)
+    TPR = tp/(tp+fn)
+    print("Tree-OLNP, TPR: {:.3f}, FPR: {:.3f}".format(TPR, FPR))
+    
+# Space Partitioning
+* Context tree divides the feature space in the regions.
+* In each region, Tree-OLNP tries to solve a linear problem.
+* Single expert is represented by different union of linear models trained in each region. (Hence Tree-OLNP is piece-wise linear, i.e nonlinear)
+* Finest partition is shown below for a context tree with depth 6
+<img src="figures/test__node_regions_visualized.png">
+
+# Learning Performance
+* Below graph visualizes how TPR, FPR, corresponding class weights and expert weights are being updated during training.
+* Note that NPNN augments data to 150k samples (shuffle + concatenation) for better convergence.
+<img src="figures/transient_performances.png">
 
 # Expected Decision Boundaries
-When input data is 2D, it is possible to visualize decision boundaries. I included 2 decision boundaries for target false alarms 0.05 and 0.2.<br/>
-We use tree depth of 8.<br/>
-<img src="figures/db_005.png">
-<img src="figures/db_020.png">
+Visualization of decision boundaries for 2D dataset.<br/>
+<img src="figures/decision_boundary_visualized.png">
 
-# Importance for piecewise classifiers
-
-Proposed context tree framework divides the space in to regions. In each region we train different classifier. 
-It is possible to define the whole space by different combinations of regions. 
-Each combination can be considered as seperate piece-wise NP classifier. Proposed tree framework sequantially learns corresponding weights of these classifiers.
-More detailed information about context tree partitioning in NP framework can be found in [1].<br/>
-We also show example regions and their corresponding partitions (piece-wise NP classifiers) in the figure below.
-<img src="figures/tree_partition.png">
-
-We also share how weights of different partitions changes as context tree processes more data. In the below figure, you can see that preference classifier is shifted from root to leaf nodes as number of sample increases.
-<img src="figures/tree_weights.png">
-
-Thanks!
-Basarbatu Can
+Thanks!<br/>
+Basarbatu Can, PhD
 
 # References
 [1] Can, Başarbatu, and Hüseyin Özkan. "Neyman-Pearson Classification Via Context Trees." 2020 28th Signal Processing and Communications Applications Conference (SIU). IEEE, 2020. <br/>

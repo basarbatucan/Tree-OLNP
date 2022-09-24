@@ -8,6 +8,3 @@ data/*
 !data/train_img_features.csv
 !data/train_ucsdped2_features_cvpr.csv
 !data/test_ucsdped2_features_cvpr.csv
-tree_olnp_parallel/*
-tree_partition/*
-all_partitions.py

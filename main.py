@@ -55,7 +55,7 @@ print(clf.best_params_)
 best_tree_olnp = clf.best_estimator_
 
 # plot space partition
-best_tree_olnp.test_init_partitioner(X_test)
+best_tree_olnp.test_init_partitioner(X_train)
 
 # prediction
 y_pred = best_tree_olnp.predict(X_test)
