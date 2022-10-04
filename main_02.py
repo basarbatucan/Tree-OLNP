@@ -36,31 +36,22 @@ parameters = {
     'tree_depth':[2],                  # default, 2
     'split_prob':[0.5],                # default, 0.5
     'node_loss_constant':[1],          # default, 1
-    'exploration_prob':[0.2],          # default, 0.2
-    'uncertainity_threshold':[0.7]     # default, 0.6
+    'exploration_prob':[0.3],          # default, 0.2
+    'uncertainity_threshold':[0.9]     # default, 0.6
     }
 
 # classifier definition
 # Note that cross validation is not applied here, it will be implemented in the future versions
-TreeOlnp = tree_olnp(tfpr = target_FPR, projection_type = 'iterative_PCA', active_learning=True)
-
-# hyperparameter tuning
-clf = GridSearchCV(TreeOlnp, parameters, verbose=3, cv=2, n_jobs=-1)
+TreeOlnp = tree_olnp(tfpr = target_FPR, projection_type = 'PCA', tree_depth=5, active_learning=True, exploration_prob=0.2, uncertainity_threshold=0.65)
 
 # training
-clf.fit(X_train, y_train)
-
-# print best params
-print(clf.best_params_)
-
-# get best estimator
-best_tree_olnp = clf.best_estimator_
+TreeOlnp.fit(X_train, y_train, X_test=X_test, y_test=y_test, test_freq=5000)
 
 # plot space partition
-best_tree_olnp.test_init_partitioner(X_train)
+TreeOlnp.test_init_partitioner(X_train)
 
 # prediction
-y_pred = best_tree_olnp.predict(X_test)
+y_pred = TreeOlnp.predict(X_test)
 
 # evaluation
 tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
@@ -68,35 +59,35 @@ FPR = fp/(fp+tn)
 TPR = tp/(tp+fn)
 print("Tree-OLNP, TPR: {:.3f}, FPR: {:.3f}".format(TPR, FPR))
 
-# plot transient performances
+# plot transient train performances
 f,ax = plt.subplots(2,2,figsize=(8,12))
-ax[0, 0].plot(best_tree_olnp.tpr_train_array_, label="TPR")
+ax[0, 0].plot(TreeOlnp.tpr_train_array_, label="TPR")
 ax[0, 0].set_xlabel("Number of Samples")
 ax[0, 0].set_ylabel("TPR")
 ax[0, 0].grid()
 ax[0, 0].legend()
 
-ax[1, 0].plot(best_tree_olnp.fpr_train_array_, label="FPR")
+ax[1, 0].plot(TreeOlnp.fpr_train_array_, label="FPR")
 ax[1, 0].set_xlabel("Number of Samples")
 ax[1, 0].set_ylabel("FPR")
 ax[1, 0].grid()
 ax[1, 0].legend()
 
-ax[0, 1].plot(best_tree_olnp.neg_class_weight_train_array_, label="Negative Class weight")
-ax[0, 1].plot(best_tree_olnp.pos_class_weight_train_array_, label="Positive Class weight")
+ax[0, 1].plot(TreeOlnp.neg_class_weight_train_array_, label="Negative Class weight")
+ax[0, 1].plot(TreeOlnp.pos_class_weight_train_array_, label="Positive Class weight")
 ax[0, 1].set_xlabel("Number of Samples")
 ax[0, 1].set_ylabel("Class Respective Weights")
 ax[0, 1].grid()
 ax[0, 1].legend()
 
-for i in range(0, best_tree_olnp.tree_depth):
-    scatter_y = best_tree_olnp.mu_train_array_[:,i]
+for i in range(0, TreeOlnp.tree_depth):
+    scatter_y = TreeOlnp.mu_train_array_[:,i]
     scatter_x = list(range(0, scatter_y.shape[0]))
     ax[1, 1].scatter(x=scatter_x, y=scatter_y, label="Depth {}".format(i))
 ax[1, 1].legend()
 ax[1, 1].set_xlabel("Number of Samples")
 ax[1, 1].set_ylabel("Expert Weights")
-f.savefig('./figures/transient_performances.png')
+f.savefig('./figures/transient_train_performances.png')
 
 # plot decision boundaries if the input is 2 dimensional
 # create a mesh to plot in
@@ -105,7 +96,7 @@ y_min, y_max = X_test[:, 1].min() - 1, X_test[:, 1].max() + 1
 xx, yy = np.meshgrid(np.linspace(x_min, x_max, 100),
                      np.linspace(y_min, y_max, 100))
 X_mesh = np.c_[xx.ravel(), yy.ravel()]
-Z = best_tree_olnp.predict(X_mesh)
+Z = TreeOlnp.predict(X_mesh)
 Z = Z.reshape(xx.shape)
 pos_class_indices = (y_test == 1)
 neg_class_indices = (y_test == -1)
@@ -119,5 +110,20 @@ ax.legend()
 ax.grid()
 ax.set_ylabel("X_2")
 ax.set_xlabel("X_1")
-ax.set_title("TFPR:{:.3f}".format(best_tree_olnp.tfpr))
+ax.set_title("TFPR:{:.3f}".format(TreeOlnp.tfpr))
 f.savefig('./figures/decision_boundary_visualized.png')
+
+# plot transient test performances
+f,ax = plt.subplots(1,2,figsize=(8,12))
+ax[0].plot(TreeOlnp.test_array_indices_, TreeOlnp.fpr_test_array_, label="FPR")
+ax[0].set_xlabel("Number of Samples")
+ax[0].set_ylabel("TPR")
+ax[0].grid()
+ax[0].legend()
+
+ax[1].plot(TreeOlnp.test_array_indices_, TreeOlnp.tpr_test_array_, label="TPR")
+ax[1].set_xlabel("Number of Samples")
+ax[1].set_ylabel("TPR")
+ax[1].grid()
+ax[1].legend()
+f.savefig('./figures/transient_test_performances.png')

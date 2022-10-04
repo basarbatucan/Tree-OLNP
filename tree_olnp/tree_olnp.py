@@ -1,3 +1,4 @@
+from operator import xor
 import numpy as np
 from sklearn.decomposition import PCA
 import pandas as pd
@@ -8,7 +9,7 @@ import matplotlib.pyplot as plt
 
 class tree_olnp:
 
-    def __init__(self, tfpr=0.1, eta_init=0.01, beta_init=100, sigmoid_h=-1, Lambda=0, tree_depth=2, split_prob=0.5, node_loss_constant=1, projection_type='PCA', ensemble_type='probabilistic', max_row=None, max_col=None) -> None:
+    def __init__(self, tfpr=0.1, eta_init=0.01, beta_init=100, sigmoid_h=-1, Lambda=0, tree_depth=2, split_prob=0.5, node_loss_constant=1, projection_type='PCA', ensemble_type='probabilistic', max_row=None, max_col=None, active_learning=False, exploration_prob=0.2, uncertainity_threshold=0.5) -> None:
         
         # hyperparameters
         self.tfpr = tfpr
@@ -21,6 +22,9 @@ class tree_olnp:
         self.node_loss_constant = node_loss_constant
         self.projection_type = projection_type
         self.ensemble_type = ensemble_type
+        self.active_learning = active_learning
+        self.exploration_prob = exploration_prob
+        self.uncertainity_threshold = uncertainity_threshold
 
         # parameters
         self.w_ = None # perceptron weight
@@ -41,6 +45,9 @@ class tree_olnp:
         self.fpr_train_array_ = None
         self.neg_class_weight_train_array_ = None # learned weight for negative class (note that we assume binary classes are 1 and -1)
         self.pos_class_weight_train_array_ = None # learned weight for positive class
+        self.test_array_indices_ = None
+        self.tpr_test_array_ = None
+        self.fpr_test_array_ = None
 
     def fit(self, X, y, **fit_params):
 
@@ -55,6 +62,9 @@ class tree_olnp:
         split_prob = self.split_prob
         node_loss_constant = self.node_loss_constant
         projection_type = self.projection_type
+        active_learning = self.active_learning
+        exploration_prob = self.exploration_prob
+        uncertainity_threshold = self.uncertainity_threshold
 
         # set augmentation size
         n_samples_augmented_min = 150e3
@@ -126,14 +136,25 @@ class tree_olnp:
         fpr_train_array = np.zeros((n_samples))
         neg_class_weight_train_array = np.zeros((n_samples))
         pos_class_weight_train_array = np.zeros((n_samples))
+        test_array_indices = np.zeros((n_samples))
+        tpr_test_array = np.zeros((n_samples))
+        fpr_test_array = np.zeros((n_samples))
         gamma_array = np.zeros((n_samples))
-        transient_number_of_positive_samples = 1
-        transient_number_of_negative_samples = 1
+
+        transient_number_of_positive_samples_explore = 1
+        transient_number_of_negative_samples_explore = 1
+        transient_number_of_positive_samples_exploit = 1
+        transient_number_of_negative_samples_exploit = 1
 
         # initiate weights
         neg_class_weight_train_array[0] = 2*gamma
         pos_class_weight_train_array[0] = 2*gamma
         
+        # initiate active learning index counter
+        # not all samples in dataset are used in training
+        sample_index = 0
+        test_index = 0
+
         for i in range(0, n_samples):
 
             # take the input data
@@ -166,12 +187,71 @@ class tree_olnp:
                 y_discriminant_ = np.matmul(xt, w[:, dark_node_index])+b[dark_node_index]
                 y_discriminant[dark_node_index] = y_discriminant_
                 C[dark_node_index] = np.sign(y_discriminant_)
-            
+
+            # if active learning is not active
+            # Tree OLNP will use every sample avaible
+            if active_learning:
+                # exploration probability
+                z = np.random.rand()
+                if i==0:
+                    z=0
+                if z > exploration_prob:
+                    # this sample is not part of the exploration
+                    # calculate entropy of xt for exploitation
+                    pos_indices = C[dark_node_indices] == 1
+                    pos_indices_sum = pos_indices.sum()
+                    if (pos_indices_sum == 0) or (pos_indices_sum == len(dark_node_indices)):
+                        # all experts share the same prediction
+                        entropy = 0
+                    else:
+                        theta = mu_tree[pos_indices].sum() # P(f(x)=1) = theta
+                        entropy = -theta*np.log2(theta)-(1-theta)*np.log2(1-theta)
+                    # Based on the calculated entropy, decide about exploitation
+                    if entropy <= uncertainity_threshold:
+                        # experts are certain about xt
+                        # no need to include xt in learning process
+                        is_explore = False
+                        is_exploit = False
+                    else:
+                        # experts are uncertain about xt
+                        # need to include xt in learning process
+                        is_explore = False
+                        is_exploit = True
+                else:
+                    # this sample is part of the exploration
+                    is_explore = True
+                    is_exploit = True
+            else:
+                # active learning is not availble, do not apply any filter to xt
+                # i.e no explore or exploit
+                is_explore = True
+                is_exploit = True
+
+            # handle uninformative sample case
+            if not (is_explore or is_exploit):
+                continue
+
             # calculate prediction of the ensemble
             yt_predict = self.__expert_ensemble(C[dark_node_indices], y_discriminant[dark_node_indices], mu_tree)
 
+            # if transient test is on
+            # apply different intervals
+            if 'X_test' in fit_params.keys():
+                if sample_index%fit_params['test_freq'] == 0:
+                    # conduct test
+                    X_test = fit_params['X_test']
+                    y_test = fit_params['y_test']
+                    y_pred = self.predict(X_test, w=w, b=b, P=P, E=E)
+                    tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+                    FPR = fp/(fp+tn)
+                    TPR = tp/(tp+fn)
+                    test_array_indices[test_index] = sample_index
+                    fpr_test_array[test_index] = FPR
+                    tpr_test_array[test_index] = TPR
+                    test_index = test_index+1
+
             # save sample mu
-            sample_mu[i, :] = mu_tree
+            sample_mu[sample_index, :] = mu_tree
 
             # save tp and fp
             if yt == 1:
@@ -181,90 +261,112 @@ class tree_olnp:
                 if yt_predict == 1:
                     fp = fp+1
 
-            tpr_train_array[i] = tp/transient_number_of_positive_samples
-            fpr_train_array[i] = fp/transient_number_of_negative_samples
+            tpr_train_array[sample_index] = tp/(transient_number_of_positive_samples_explore+transient_number_of_positive_samples_exploit)
+            fpr_train_array[sample_index] = fp/(transient_number_of_negative_samples_explore+transient_number_of_negative_samples_exploit)
 
             # save gamma
-            gamma_array[i] = gamma
+            gamma_array[sample_index] = gamma
+
+            # only related to class weight learning
 
             # update the buffer with the current prediction
-            if yt == -1:
+            if is_explore:
+                # estimate FPR only in the exploration phase
+                if yt == -1:
+                    # modify the size of the FPR estimation buffer
+                    if negative_sample_buffer_index == negative_sample_buffer_size-1:
+                        negative_sample_buffer[:-1] = negative_sample_buffer[1:]
+                    else:
+                        negative_sample_buffer_index += 1
 
-                # modify the size of the FPR estimation buffer
+                    if yt_predict == 1:
+                        # false positive
+                        negative_sample_buffer[negative_sample_buffer_index] = 1
+                    else:
+                        # true negative
+                        negative_sample_buffer[negative_sample_buffer_index] = 0
+
+                # estimate the FPR of the current model using the moving buffer
                 if negative_sample_buffer_index == negative_sample_buffer_size-1:
-                    negative_sample_buffer[:-1] = negative_sample_buffer[1:]
+                    estimated_FPR = np.mean(negative_sample_buffer)
                 else:
-                    negative_sample_buffer_index += 1
+                    estimated_FPR = np.mean(negative_sample_buffer[:negative_sample_buffer_index+1])
 
-                if yt_predict == 1:
-                    # false positive
-                    negative_sample_buffer[negative_sample_buffer_index] = 1
+                # y(t), calculate mu(t)
+                if yt == 1:
+                    # mu(t) uses gamma(t-1), n_plus(t-1), n_minus(t-1)
+                    mu = (transient_number_of_positive_samples_explore + transient_number_of_negative_samples_explore)/transient_number_of_positive_samples_explore
                 else:
-                    # true negative
-                    negative_sample_buffer[negative_sample_buffer_index] = 0
+                    # mu(t) uses gamma(t-1), n_plus(t-1), n_minus(t-1)
+                    mu = gamma*(transient_number_of_positive_samples_explore + transient_number_of_negative_samples_explore)/transient_number_of_negative_samples_explore
 
-            # estimate the FPR of the current model using the moving buffer
-            if negative_sample_buffer_index == negative_sample_buffer_size-1:
-                estimated_FPR = np.mean(negative_sample_buffer)
-            else:
-                estimated_FPR = np.mean(negative_sample_buffer[:negative_sample_buffer_index+1])
-
-            # y(t), calculate mu(t)
+            # save class cost
             if yt == 1:
-                # mu(t) uses gamma(t-1), n_plus(t-1), n_minus(t-1)
-                mu = (transient_number_of_positive_samples + transient_number_of_negative_samples)/transient_number_of_positive_samples
                 # save class costs
-                pos_class_weight_train_array[i] = mu
-                if i>1:
-                    neg_class_weight_train_array[i] = neg_class_weight_train_array[i-1]
+                pos_class_weight_train_array[sample_index] = mu
+                if sample_index>1:
+                    neg_class_weight_train_array[sample_index] = neg_class_weight_train_array[sample_index-1]
             else:
-                # mu(t) uses gamma(t-1), n_plus(t-1), n_minus(t-1)
-                mu = gamma*(transient_number_of_positive_samples + transient_number_of_negative_samples)/transient_number_of_negative_samples
                 # save class costs
-                neg_class_weight_train_array[i] = mu
-                if i>1:
-                    pos_class_weight_train_array[i] = pos_class_weight_train_array[i-1]
+                neg_class_weight_train_array[sample_index] = mu
+                if sample_index>1:
+                    pos_class_weight_train_array[sample_index] = pos_class_weight_train_array[i-1]
 
-            # SGD
-            # Update perceptron in each node
-            for k in range(len(dark_node_indices)-1,-1,-1):
-                dark_node_index = dark_node_indices[k]
-                # get the node loss
-                z = yt*y_discriminant[dark_node_index]
-                dloss_dz = self.__deriv_sigmoid_loss(z, sigmoid_h)
-                node_loss = self.__sigmoid_loss(z, sigmoid_h)
-                loss = mu*node_loss - gamma*tfpr
-                # update node performance
-                E[dark_node_index] = E[dark_node_index]*np.exp(node_loss_constant*loss)
-                # update node prob
-                if k == len(dark_node_indices)-1:
-                    P[dark_node_index] = E[dark_node_index]
+            if is_exploit:
+                # only related to perceptron learning
+
+                # SGD
+                # Update perceptron in each node
+                for k in range(len(dark_node_indices)-1,-1,-1):
+                    dark_node_index = dark_node_indices[k]
+                    # get the node loss
+                    z = yt*y_discriminant[dark_node_index]
+                    dloss_dz = self.__deriv_sigmoid_loss(z, sigmoid_h)
+                    node_loss = self.__sigmoid_loss(z, sigmoid_h)
+                    loss = mu*node_loss - gamma*tfpr
+                    # update node performance
+                    E[dark_node_index] = E[dark_node_index]*np.exp(node_loss_constant*loss)
+                    # update node prob
+                    if k == len(dark_node_indices)-1:
+                        P[dark_node_index] = E[dark_node_index]
+                    else:
+                        P[dark_node_index] = split_prob * P[connectivity[dark_node_index, 2]] * P[connectivity[dark_node_index, 3]] + (1-split_prob)*E[dark_node_index]
+                    # SGD on each node
+                    dz_dw = yt*xt
+                    dz_db = yt
+                    dloss_dw = dloss_dz*dz_dw
+                    dloss_db = dloss_dz*dz_db
+                    # update w and b
+                    w[:, dark_node_index] = (1-eta*Lambda)*w[:, dark_node_index]-eta*mu*dloss_dw
+                    b[dark_node_index] = b[dark_node_index]-eta*mu*dloss_db
+                    
+                # y(t)
+                if yt == 1:
+                    # calculate n_plus(t)
+                    transient_number_of_positive_samples_exploit += 1
                 else:
-                    P[dark_node_index] = split_prob * P[connectivity[dark_node_index, 2]] * P[connectivity[dark_node_index, 3]] + (1-split_prob)*E[dark_node_index]
-                # SGD on each node
-                dz_dw = yt*xt
-                dz_db = yt
-                dloss_dw = dloss_dz*dz_dw
-                dloss_db = dloss_dz*dz_db
-                # update w and b
-                w[:, dark_node_index] = (1-eta*Lambda)*w[:, dark_node_index]-eta*mu*dloss_dw
-                b[dark_node_index] = b[dark_node_index]-eta*mu*dloss_db
+                    # calculate n_minus(t)
+                    transient_number_of_negative_samples_exploit += 1
 
-            # y(t)
-            if yt == 1:
-                # calculate n_plus(t)
-                transient_number_of_positive_samples += 1
-            else:
-                # calculate n_minus(t)
-                transient_number_of_negative_samples += 1
-                # calculate gamma(t)
-                gamma = gamma*(1+beta*(estimated_FPR - tfpr))
-
+            if is_explore:
+                # y(t)
+                if yt == 1:
+                    # calculate n_plus(t)
+                    transient_number_of_positive_samples_explore += 1
+                else:
+                    # calculate n_minus(t)
+                    transient_number_of_negative_samples_explore += 1
+                    # calculate gamma(t)
+                    gamma = gamma*(1+beta*(estimated_FPR - tfpr))
+            
             # update learning rate of perceptron
-            eta = eta_init/(1+Lambda*(transient_number_of_positive_samples + transient_number_of_negative_samples))
+            eta = eta_init/(1+Lambda*(transient_number_of_positive_samples_exploit + transient_number_of_negative_samples_exploit))
 
-            # update uzawa gain
-            beta = beta_init/(1+Lambda*(transient_number_of_positive_samples + transient_number_of_negative_samples))
+            # update learning rate for class weights
+            beta = beta_init/(1+Lambda*(transient_number_of_positive_samples_explore + transient_number_of_negative_samples_explore))
+
+            # update sample index
+            sample_index = sample_index+1
 
         # save updated parameters
         self.w_ = w
@@ -273,25 +375,40 @@ class tree_olnp:
         self.E_ = E
 
         # save the results
-        self.mu_train_array_ = sample_mu
-        self.tpr_train_array_ = tpr_train_array
-        self.fpr_train_array_ = fpr_train_array
-        self.neg_class_weight_train_array_ = neg_class_weight_train_array
-        self.pos_class_weight_train_array_ = pos_class_weight_train_array
-
+        self.mu_train_array_ = sample_mu[:sample_index,:]
+        self.tpr_train_array_ = tpr_train_array[:sample_index,]
+        self.fpr_train_array_ = fpr_train_array[:sample_index,]
+        self.neg_class_weight_train_array_ = neg_class_weight_train_array[:sample_index,]
+        self.pos_class_weight_train_array_ = pos_class_weight_train_array[:sample_index,]
+        self.test_array_indices_ = test_array_indices[:test_index,]
+        self.fpr_test_array_ = fpr_test_array[:test_index,]
+        self.tpr_test_array_ = tpr_test_array[:test_index,]
+        
         return None
 
-    def predict(self, X):
+    def predict(self, X, **predict_params):
+
         # note that input should be numpy array, may need to fix this part for other data types
         n_test = X.shape[0]
         y_predict = np.empty(n_test)
-        w = self.w_
-        b = self.b_
+        
+        # get parameters generated at the constructor
         connectivity = self.connectivity_
-        tfpr = self.tfpr
-        P = self.P_
-        E = self.E_
         projection_type = self.projection_type
+
+        # get params
+        if len(predict_params.keys()) == 0:
+            # no force predict parameters
+            w = self.w_
+            b = self.b_
+            P = self.P_
+            E = self.E_
+        else:
+            # there are predict parameters
+            w = predict_params['w']
+            b = predict_params['b']
+            P = predict_params['P']
+            E = predict_params['E']
 
         number_of_nodes = 2**(self.tree_depth+1)-1
         sigma_tree = np.zeros((self.tree_depth+1,))
@@ -364,6 +481,9 @@ class tree_olnp:
         params['ensemble_type'] = self.ensemble_type
         params['max_row'] = self.max_row
         params['max_col'] = self.max_col
+        params['active_learning'] = self.active_learning
+        params['exploration_prob'] = self.exploration_prob
+        params['uncertainity_threshold'] = self.uncertainity_threshold
 
         return params
 

@@ -8,3 +8,5 @@ data/*
 !data/train_img_features.csv
 !data/train_ucsdped2_features_cvpr.csv
 !data/test_ucsdped2_features_cvpr.csv
+!data/av_test_features_cvpr.csv
+!data/av_train_features_cvpr.csv
