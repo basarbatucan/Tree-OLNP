@@ -33,16 +33,14 @@ parameters = {
     'beta_init': [100],                # default, 100
     'sigmoid_h': [-1],                 # default, -1
     'Lambda':[0],                      # default, 0
-    'tree_depth':[2],                  # default, 2
+    'tree_depth':[2, 4],               # default, 2
     'split_prob':[0.5],                # default, 0.5
-    'node_loss_constant':[1],          # default, 1
-    'exploration_prob':[0.2],          # default, 0.2
-    'uncertainity_threshold':[0.7]     # default, 0.6
+    'node_loss_constant':[1]           # default, 1
     }
 
 # classifier definition
 # Note that cross validation is not applied here, it will be implemented in the future versions
-TreeOlnp = tree_olnp(tfpr = target_FPR, projection_type = 'iterative_PCA', active_learning=True)
+TreeOlnp = tree_olnp(tfpr = target_FPR, projection_type = 'iterative_PCA')
 
 # hyperparameter tuning
 clf = GridSearchCV(TreeOlnp, parameters, verbose=3, cv=2, n_jobs=-1)
@@ -96,7 +94,7 @@ for i in range(0, best_tree_olnp.tree_depth):
 ax[1, 1].legend()
 ax[1, 1].set_xlabel("Number of Samples")
 ax[1, 1].set_ylabel("Expert Weights")
-f.savefig('./figures/transient_performances.png')
+f.savefig('./figures/transient_train_performances.png')
 
 # plot decision boundaries if the input is 2 dimensional
 # create a mesh to plot in

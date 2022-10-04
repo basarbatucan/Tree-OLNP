@@ -91,7 +91,7 @@ Proposed model is an online, nonlinear, ensemble (context tree based) NP classif
 # Learning Performance
 * Below graph visualizes how TPR, FPR, corresponding class weights and expert weights are being updated during training.
 * Note that NPNN augments data to 150k samples (shuffle + concatenation) for better convergence.
-<img src="figures/transient_performances.png">
+<img src="figures/transient_train_performances.png">
 
 # Expected Decision Boundaries
 Visualization of decision boundaries for 2D dataset.<br/>
