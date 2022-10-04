@@ -45,6 +45,9 @@ class tree_olnp:
         self.fpr_train_array_ = None
         self.neg_class_weight_train_array_ = None # learned weight for negative class (note that we assume binary classes are 1 and -1)
         self.pos_class_weight_train_array_ = None # learned weight for positive class
+        self.test_array_indices_ = None
+        self.tpr_test_array_ = None
+        self.fpr_test_array_ = None
 
     def fit(self, X, y, **fit_params):
 
@@ -133,7 +136,11 @@ class tree_olnp:
         fpr_train_array = np.zeros((n_samples))
         neg_class_weight_train_array = np.zeros((n_samples))
         pos_class_weight_train_array = np.zeros((n_samples))
+        test_array_indices = np.zeros((n_samples))
+        tpr_test_array = np.zeros((n_samples))
+        fpr_test_array = np.zeros((n_samples))
         gamma_array = np.zeros((n_samples))
+
         transient_number_of_positive_samples_explore = 1
         transient_number_of_negative_samples_explore = 1
         transient_number_of_positive_samples_exploit = 1
@@ -146,6 +153,7 @@ class tree_olnp:
         # initiate active learning index counter
         # not all samples in dataset are used in training
         sample_index = 0
+        test_index = 0
 
         for i in range(0, n_samples):
 
@@ -198,6 +206,7 @@ class tree_olnp:
                     else:
                         theta = mu_tree[pos_indices].sum() # P(f(x)=1) = theta
                         entropy = -theta*np.log2(theta)-(1-theta)*np.log2(1-theta)
+                    # Based on the calculated entropy, decide about exploitation
                     if entropy <= uncertainity_threshold:
                         # experts are certain about xt
                         # no need to include xt in learning process
@@ -211,7 +220,7 @@ class tree_olnp:
                 else:
                     # this sample is part of the exploration
                     is_explore = True
-                    is_exploit = False
+                    is_exploit = True
             else:
                 # active learning is not availble, do not apply any filter to xt
                 # i.e no explore or exploit
@@ -224,6 +233,22 @@ class tree_olnp:
 
             # calculate prediction of the ensemble
             yt_predict = self.__expert_ensemble(C[dark_node_indices], y_discriminant[dark_node_indices], mu_tree)
+
+            # if transient test is on
+            # apply different intervals
+            if 'X_test' in fit_params.keys():
+                if sample_index%fit_params['test_freq'] == 0:
+                    # conduct test
+                    X_test = fit_params['X_test']
+                    y_test = fit_params['y_test']
+                    y_pred = self.predict(X_test, w=w, b=b, P=P, E=E)
+                    tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+                    FPR = fp/(fp+tn)
+                    TPR = tp/(tp+fn)
+                    test_array_indices[test_index] = sample_index
+                    fpr_test_array[test_index] = FPR
+                    tpr_test_array[test_index] = TPR
+                    test_index = test_index+1
 
             # save sample mu
             sample_mu[sample_index, :] = mu_tree
@@ -355,20 +380,35 @@ class tree_olnp:
         self.fpr_train_array_ = fpr_train_array[:sample_index,]
         self.neg_class_weight_train_array_ = neg_class_weight_train_array[:sample_index,]
         self.pos_class_weight_train_array_ = pos_class_weight_train_array[:sample_index,]
-
+        self.test_array_indices_ = test_array_indices[:test_index,]
+        self.fpr_test_array_ = fpr_test_array[:test_index,]
+        self.tpr_test_array_ = tpr_test_array[:test_index,]
+        
         return None
 
-    def predict(self, X):
+    def predict(self, X, **predict_params):
+
         # note that input should be numpy array, may need to fix this part for other data types
         n_test = X.shape[0]
         y_predict = np.empty(n_test)
-        w = self.w_
-        b = self.b_
+        
+        # get parameters generated at the constructor
         connectivity = self.connectivity_
-        tfpr = self.tfpr
-        P = self.P_
-        E = self.E_
         projection_type = self.projection_type
+
+        # get params
+        if len(predict_params.keys()) == 0:
+            # no force predict parameters
+            w = self.w_
+            b = self.b_
+            P = self.P_
+            E = self.E_
+        else:
+            # there are predict parameters
+            w = predict_params['w']
+            b = predict_params['b']
+            P = predict_params['P']
+            E = predict_params['E']
 
         number_of_nodes = 2**(self.tree_depth+1)-1
         sigma_tree = np.zeros((self.tree_depth+1,))
