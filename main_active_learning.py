@@ -10,11 +10,11 @@ from tree_olnp.tree_olnp import tree_olnp
 # Target False Alarm
 # NP framework aims to maximize the detection power while upper bounding the false alarm rate
 # target false alarm rate should be determined by the user
-target_FPR = 0.1
+target_FPR = 0.2
 
 # every 5000 sample, calculate TPR and FPR of the transient model using test set
 # this application is specific to active learning to better show performance of the model
-test_freq = 1000
+test_freq = 500
 
 # main 
 # np-nn works for 1,-1 classification
@@ -38,8 +38,8 @@ TreeOlnp = tree_olnp(
     projection_type = 'iterative_PCA', 
     tree_depth=5, 
     active_learning=True, 
-    exploration_prob=0.2, 
-    uncertainity_threshold=0.85)
+    exploration_prob=0.3, 
+    uncertainity_threshold=0.95)
 
 # training with test
 TreeOlnp.fit(X_train, y_train, X_test=X_test, y_test=y_test, test_freq=test_freq)

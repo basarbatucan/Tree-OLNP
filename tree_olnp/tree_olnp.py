@@ -141,10 +141,8 @@ class tree_olnp:
         fpr_test_array = np.zeros((n_samples))
         gamma_array = np.zeros((n_samples))
 
-        transient_number_of_positive_samples_explore = 1
-        transient_number_of_negative_samples_explore = 1
-        transient_number_of_positive_samples_exploit = 1
-        transient_number_of_negative_samples_exploit = 1
+        transient_number_of_positive_samples = 1
+        transient_number_of_negative_samples = 1
 
         # initiate weights
         neg_class_weight_train_array[0] = 2*gamma
@@ -253,19 +251,13 @@ class tree_olnp:
             # save sample mu
             sample_mu[sample_index, :] = mu_tree
 
-            # save tp and fp
+            # sqave and update, tp, fp and number of samples
             if yt == 1:
                 if yt_predict == 1:
                     tp = tp+1
             else:
                 if yt_predict == 1:
                     fp = fp+1
-
-            tpr_train_array[sample_index] = tp/(transient_number_of_positive_samples_explore+transient_number_of_positive_samples_exploit)
-            fpr_train_array[sample_index] = fp/(transient_number_of_negative_samples_explore+transient_number_of_negative_samples_exploit)
-
-            # save gamma
-            gamma_array[sample_index] = gamma
 
             # only related to class weight learning
 
@@ -295,10 +287,17 @@ class tree_olnp:
                 # y(t), calculate mu(t)
                 if yt == 1:
                     # mu(t) uses gamma(t-1), n_plus(t-1), n_minus(t-1)
-                    mu = (transient_number_of_positive_samples_explore + transient_number_of_negative_samples_explore)/transient_number_of_positive_samples_explore
+                    mu = (transient_number_of_positive_samples + transient_number_of_negative_samples)/transient_number_of_positive_samples
                 else:
                     # mu(t) uses gamma(t-1), n_plus(t-1), n_minus(t-1)
-                    mu = gamma*(transient_number_of_positive_samples_explore + transient_number_of_negative_samples_explore)/transient_number_of_negative_samples_explore
+                    mu = gamma*(transient_number_of_positive_samples + transient_number_of_negative_samples)/transient_number_of_negative_samples
+
+            # save train tp fp
+            tpr_train_array[sample_index] = tp/transient_number_of_positive_samples
+            fpr_train_array[sample_index] = fp/transient_number_of_negative_samples
+
+            # save train gamma
+            gamma_array[sample_index] = gamma
 
             # save class cost
             if yt == 1:
@@ -310,7 +309,7 @@ class tree_olnp:
                 # save class costs
                 neg_class_weight_train_array[sample_index] = mu
                 if sample_index>1:
-                    pos_class_weight_train_array[sample_index] = pos_class_weight_train_array[i-1]
+                    pos_class_weight_train_array[sample_index] = pos_class_weight_train_array[sample_index-1]
 
             if is_exploit:
                 # only related to perceptron learning
@@ -339,31 +338,23 @@ class tree_olnp:
                     # update w and b
                     w[:, dark_node_index] = (1-eta*Lambda)*w[:, dark_node_index]-eta*mu*dloss_dw
                     b[dark_node_index] = b[dark_node_index]-eta*mu*dloss_db
-                    
-                # y(t)
-                if yt == 1:
-                    # calculate n_plus(t)
-                    transient_number_of_positive_samples_exploit += 1
-                else:
-                    # calculate n_minus(t)
-                    transient_number_of_negative_samples_exploit += 1
 
             if is_explore:
                 # y(t)
                 if yt == 1:
                     # calculate n_plus(t)
-                    transient_number_of_positive_samples_explore += 1
+                    transient_number_of_positive_samples += 1
                 else:
                     # calculate n_minus(t)
-                    transient_number_of_negative_samples_explore += 1
+                    transient_number_of_negative_samples += 1
                     # calculate gamma(t)
                     gamma = gamma*(1+beta*(estimated_FPR - tfpr))
             
             # update learning rate of perceptron
-            eta = eta_init/(1+Lambda*(transient_number_of_positive_samples_exploit + transient_number_of_negative_samples_exploit))
+            eta = eta_init/(1+Lambda*(transient_number_of_positive_samples + transient_number_of_negative_samples))
 
             # update learning rate for class weights
-            beta = beta_init/(1+Lambda*(transient_number_of_positive_samples_explore + transient_number_of_negative_samples_explore))
+            beta = beta_init/(1+Lambda*(transient_number_of_positive_samples + transient_number_of_negative_samples))
 
             # update sample index
             sample_index = sample_index+1
