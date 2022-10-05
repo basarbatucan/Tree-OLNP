@@ -37,7 +37,7 @@ TreeOlnp = tree_olnp(
     tfpr = target_FPR, 
     projection_type = 'iterative_PCA', 
     tree_depth=5, 
-    active_learning=True, 
+    active_learning=False, 
     exploration_prob=0.3, 
     uncertainity_threshold=0.95)
 
