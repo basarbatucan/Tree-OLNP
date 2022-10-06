@@ -43,11 +43,13 @@ class tree_olnp:
         self.mu_train_array_ = None
         self.tpr_train_array_ = None
         self.fpr_train_array_ = None
+        self.np_train_array_ = None
         self.neg_class_weight_train_array_ = None # learned weight for negative class (note that we assume binary classes are 1 and -1)
         self.pos_class_weight_train_array_ = None # learned weight for positive class
         self.test_array_indices_ = None
         self.tpr_test_array_ = None
         self.fpr_test_array_ = None
+        self.np_test_array_ = None
 
     def fit(self, X, y, **fit_params):
 
@@ -134,11 +136,13 @@ class tree_olnp:
         fp = 0
         tpr_train_array = np.zeros((n_samples))
         fpr_train_array = np.zeros((n_samples))
+        np_train_array = np.zeros((n_samples))
         neg_class_weight_train_array = np.zeros((n_samples))
         pos_class_weight_train_array = np.zeros((n_samples))
         test_array_indices = np.zeros((n_samples))
         tpr_test_array = np.zeros((n_samples))
         fpr_test_array = np.zeros((n_samples))
+        np_test_array = np.zeros((n_samples))
         gamma_array = np.zeros((n_samples))
 
         transient_number_of_positive_samples = 1
@@ -243,9 +247,11 @@ class tree_olnp:
                     tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
                     FPR = fp/(fp+tn)
                     TPR = tp/(tp+fn)
+                    NP = max(FPR, tfpr)/tfpr - TPR
                     test_array_indices[test_index] = sample_index
                     fpr_test_array[test_index] = FPR
                     tpr_test_array[test_index] = TPR
+                    np_test_array[test_index] = NP
                     test_index = test_index+1
 
             # save sample mu
@@ -293,8 +299,12 @@ class tree_olnp:
                     mu = gamma*(transient_number_of_positive_samples + transient_number_of_negative_samples)/transient_number_of_negative_samples
 
             # save train tp fp
-            tpr_train_array[sample_index] = tp/transient_number_of_positive_samples
-            fpr_train_array[sample_index] = fp/transient_number_of_negative_samples
+            tpr_ = tp/transient_number_of_positive_samples
+            fpr_ = fp/transient_number_of_negative_samples
+            np_ = max(fpr_, tfpr)/tfpr - tpr_
+            tpr_train_array[sample_index] = tpr_
+            fpr_train_array[sample_index] = fpr_
+            np_train_array[sample_index] = np_
 
             # save train gamma
             gamma_array[sample_index] = gamma
@@ -369,11 +379,13 @@ class tree_olnp:
         self.mu_train_array_ = sample_mu[:sample_index,:]
         self.tpr_train_array_ = tpr_train_array[:sample_index,]
         self.fpr_train_array_ = fpr_train_array[:sample_index,]
+        self.np_train_array_ = np_train_array[:sample_index,]
         self.neg_class_weight_train_array_ = neg_class_weight_train_array[:sample_index,]
         self.pos_class_weight_train_array_ = pos_class_weight_train_array[:sample_index,]
         self.test_array_indices_ = test_array_indices[:test_index,]
         self.fpr_test_array_ = fpr_test_array[:test_index,]
         self.tpr_test_array_ = tpr_test_array[:test_index,]
+        self.np_test_array_ = np_test_array[:test_index,]
         
         return None
 
