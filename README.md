@@ -1,5 +1,5 @@
 # A Neural Network Approach for Online Nonlinear Neyman-Pearson Classification
-This is the repository for Online Nonlinear Neyman Pearson (NP) Classifier described in [1]: https://ieeexplore.ieee.org/document/9302287. <br/>
+This is the repository for Online Nonlinear Neyman Pearson (NP) Classifier. <br/>
 Proposed model is an online, nonlinear, ensemble (context tree based) NP classifier. In NP framework, the target is to maximize detection power while upper-bounding the false alarm. Implemented model is compatible with sklearn's gridsearchcv function. It can be used for fine tuning. You can find example usage below. 
 
 # Tree-OLNP parameters
@@ -99,6 +99,3 @@ Visualization of decision boundaries for 2D dataset.<br/>
 
 Thanks!<br/>
 Basarbatu Can, PhD
-
-# References
-[1] Can, Başarbatu, and Hüseyin Özkan. "Neyman-Pearson Classification Via Context Trees." 2020 28th Signal Processing and Communications Applications Conference (SIU). IEEE, 2020. <br/>
